@@ -14,7 +14,7 @@ from scipy import stats
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_score,accuracy_score
-from sklearn.decomposition import PCA
+from PCA import PCA_SVD
 from KNN import KNN
 
 
@@ -85,14 +85,35 @@ class Ear_Classifier():
         # print(im.size)   # 输出图片大小
         Img = np.asarray(Img)
         return Img
+
+    def img_show(self,img_set):
+        for img in img_set:
+            img = np.real(img)
+            img_size = img.size
+            img_width = int(math.sqrt(img_size))
+            img = img.reshape(img_width,img_width)
+            img = Image.fromarray(img)
+            img.show()
     
-    def PCA_decomposition(self,data,n_components=2):
-        print("PCA decomposition start!")
-        pca = PCA(n_components=n_components)
-        compress_data = pca.fit_transform(data)
-        print("number of components: ",pca.n_components)
-        print("explained variance ratio: ",pca.explained_variance_ratio_)
-        return compress_data
+    def feature_face(self,components_mat):
+        components_mat = components_mat.T
+        dim,feature_face_num = components_mat.shape
+        feature_face_num = 10
+        for i in range(feature_face_num):
+            feature_face = np.real(components_mat[:,i])*255*255*255
+            feature_face = feature_face.reshape(self.img_size)
+            feature_face = Image.fromarray(feature_face)
+            # feature_face.show()
+            feature_face = feature_face.convert('RGB')
+            feature_face.save(os.path.join(Root_dir,"results/feature_ear/fe_{}.jpg".format(i)), quality=95)
+    
+    # def PCA_decomposition(self,data,n_components=2):
+    #     print("PCA decomposition start!")
+    #     pca = PCA(n_components=n_components)
+    #     compress_data = pca.fit_transform(data)
+    #     print("number of components: ",pca.n_components)
+    #     print("explained variance ratio: ",pca.explained_variance_ratio_)
+    #     return compress_data
  
 
 
@@ -103,12 +124,22 @@ if __name__=="__main__":
     os.chdir(Root_dir)
     dataset_path = os.path.join(datasets_dir,"att_ear")
     EC = Ear_Classifier()
+    PS = PCA_SVD()
     img,label = EC.data_loader(dataset_path)
     print("data loaded!")
-    # img = EC.PCA_decomposition(img,2)
-    K_Nearest = KNN(kN = 5,method = "K_Nearest")
+    K_Nearest = KNN(kN = 3,method = "K_Nearest")
     # x_train,x_test,y_train,y_test = K_Nearest.dataset_split(img,label,0.2)
     x_train,x_test,y_train,y_test = EC.dataset_split(img,label,0.2)
+    # _,pca = PS.PCA_decomposition_sklearn(x_train,n_components=60,svd_sovler = "full")
+    # components_mat = pca.components_
+    # x_train = pca.transform(x_train)
+    # x_test = pca.transform(x_test)
+    x_train,components_mat = PS.PCA_decomposition(x_train,n_components=10)
+    x_test = PS.feature_mapping(x_test,components_mat)
+    # EC.feature_face(components_mat)
+    # EC.img_show(x_test)
+    # x_test = PS.feature_mapping(x_test,np.real(components_mat))
+    # EC.img_show(x_test)
     K_Nearest.train(x_train,y_train)
     y_pred = K_Nearest.predict(x_test)
     acc,prec = K_Nearest.evaluate(y_pred,y_test)
